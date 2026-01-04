@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Procesando autenticación">
+  <title>Procesando autenticación...</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/json-enc.js"></script>
+</head>
+
+<body hx-ext="json-enc">
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay active">
+    <div class="loading-content">
+      <div class="spinner spinner-lg spinner-primary"></div>
+      <p class="mt-lg">Procesando autenticación...</p>
+      <p class="text-sm text-muted">Por favor espere</p>
+    </div>
+  </div>
+
+  <div class="page-wrapper">
+    <div class="auth-container">
+      <!-- Logo -->
+      <div class="logo-container">
+        <div class="logo">MT</div>
+        <h1 class="text-center mb-0">Procesando autenticación</h1>
+      </div>
+
+      <!-- Error Container -->
+      <div id="error-container"></div>
+
+      <!-- Success Container -->
+      <div id="success-container" class="hidden">
+        <div class="card">
+          <div class="text-center">
+            <div style="font-size: 48px; color: var(--color-success); margin-bottom: var(--spacing-lg);">
+              ✓
+            </div>
+            <h2>Autenticación exitosa</h2>
+            <p class="text-muted">Redirigiendo al panel de control...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing Info -->
+      <div id="processing-info" class="card">
+        <div class="text-center">
+          <p class="text-muted mb-0">
+            Validando credenciales con el servidor de autenticación...
+          </p>
+        </div>
+      </div>
+
+      <!-- Hidden div that triggers on load -->
+      <div id="callback-trigger" hx-post="/api/auth/callback" hx-trigger="load" hx-swap="none"
+        hx-on::before-request="
+             const urlParams = new URLSearchParams(window.location.search);
+             const error = urlParams.get('error');
+             const errorDesc = urlParams.get('error_description');
+             const code = urlParams.get('code');
+
+             if(error) {
+               event.preventDefault();
+               document.getElementById('loading-overlay').classList.remove('active');
+               document.getElementById('processing-info').classList.add('hidden');
+               document.getElementById('error-container').innerHTML = '<div class=\'alert alert-danger\'><strong>Error:</strong> ' + (errorDesc || error) + '<br><br><small>Redirigiendo en 5 segundos...</small></div>';
+               setTimeout(() => window.location.href = 'index.html', 5000);
+               return;
+             }
+
+             if(!code) {
+               event.preventDefault();
+               document.getElementById('loading-overlay').classList.remove('active');
+               document.getElementById('processing-info').classList.add('hidden');
+               document.getElementById('error-container').innerHTML = '<div class=\'alert alert-danger\'>No se recibió código de autenticación<br><br><small>Redirigiendo en 5 segundos...</small></div>';
+               setTimeout(() => window.location.href = 'index.html', 5000);
+               return;
+             }
+           " hx-vals="js:{code: new URLSearchParams(window.location.search).get('code')}" hx-on::after-request="
+             if(event.detail.successful) {
+               const data = JSON.parse(event.detail.xhr.response);
+               if(data.access_token && data.refresh_token) {
+                 setTokens(data.access_token, data.refresh_token);
+                 document.getElementById('processing-info').classList.add('hidden');
+                 document.getElementById('loading-overlay').classList.remove('active');
+                 document.getElementById('success-container').classList.remove('hidden');
+                 setTimeout(() => window.location.href = 'dashboard.html', 1500);
+               } else {
+                 document.getElementById('loading-overlay').classList.remove('active');
+                 document.getElementById('processing-info').classList.add('hidden');
+                 document.getElementById('error-container').innerHTML = '<div class=\'alert alert-danger\'>No se recibieron tokens válidos<br><br><small>Redirigiendo en 5 segundos...</small></div>';
+                 setTimeout(() => window.location.href = 'index.html', 5000);
+               }
+             } else {
+               document.getElementById('loading-overlay').classList.remove('active');
+               document.getElementById('processing-info').classList.add('hidden');
+               const errorMsg = event.detail.xhr.response ? JSON.parse(event.detail.xhr.response).detail : 'Error de autenticación';
+               document.getElementById('error-container').innerHTML = '<div class=\'alert alert-danger\'><strong>Error:</strong> ' + errorMsg + '<br><br><small>Redirigiendo en 5 segundos...</small></div>';
+               setTimeout(() => window.location.href = 'index.html', 25000);
+             }
+           ">
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+
+</html>

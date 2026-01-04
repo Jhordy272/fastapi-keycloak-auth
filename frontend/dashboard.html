@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Panel de control - Sistema Multi-Tenant">
+  <title>Dashboard - Sistema Multi-Tenant</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+
+<body hx-ext="response-targets">
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay htmx-indicator">
+    <div class="loading-content">
+      <div class="spinner spinner-lg spinner-primary"></div>
+      <p class="mt-lg">Cargando información...</p>
+    </div>
+  </div>
+
+  <!-- Dashboard Header -->
+  <div class="dashboard-header">
+    <div class="container flex flex-between">
+      <div class="flex gap-md">
+        <div class="logo" style="width: 50px; height: 50px; font-size: var(--font-size-xl);">MT</div>
+        <div>
+          <h3 class="mb-0">Sistema Multi-Tenant</h3>
+          <p class="text-sm text-muted mb-0" id="welcome-message">Bienvenido</p>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-danger"
+          onclick="if(confirm('¿Cerrar sesión?')) { fetch('/api/auth/logout', {method: 'POST', headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()}, body: JSON.stringify({refresh_token: getRefreshToken()})}).finally(() => {clearTokens(); window.location.href='index.html';}); }"
+          type="button">
+          Cerrar Sesión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="dashboard-container">
+    <!-- Error Container -->
+    <div id="error-container"></div>
+
+    <!-- Welcome Section -->
+    <div class="card">
+      <div class="card-header">
+        <span class="welcome-badge">Autenticado</span>
+        <h2 class="mb-0">Panel de Control</h2>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">
+          Estás autenticado correctamente en el sistema. A continuación puedes ver tu información de usuario.
+        </p>
+      </div>
+    </div>
+
+    <!-- User Information Card -->
+    <div class="card" hx-get="/api/auth/me" hx-trigger="load" hx-indicator="#loading-overlay"
+      hx-swap="none" hx-on::after-request="
+           if(event.detail.successful) {
+             const user = JSON.parse(event.detail.xhr.response);
+             document.getElementById('welcome-message').textContent = 'Bienvenido, ' + (user.first_name || user.email) + '!';
+             document.getElementById('user-name').textContent = (user.first_name || '') + ' ' + (user.last_name || '');
+             document.getElementById('user-email').textContent = user.email || 'N/A';
+             document.getElementById('user-tenant').textContent = user.tenant?.name || 'N/A';
+             document.getElementById('user-username').textContent = user.email || 'N/A';
+             document.getElementById('user-id').textContent = user.id || 'N/A';
+             document.getElementById('user-email-verified').innerHTML = user.email_verified
+               ? '<span style=&quot;color: var(--color-success);&quot;>✓ Verificado</span>'
+               : '<span style=&quot;color: var(--color-warning);&quot;>⚠ No verificado</span>';
+             const token = getToken();
+             if(token) {
+               document.getElementById('token-preview').textContent = token.substring(0,20) + '...' + token.substring(token.length-20);
+             }
+           }
+         ">
+      <div class="card-header">
+        <h3 class="mb-0">Información del Usuario</h3>
+      </div>
+
+      <div class="card-body">
+        <div class="user-info-grid">
+          <div class="info-item">
+            <div class="info-label">Nombre Completo</div>
+            <div class="info-value" id="user-name">
+              <span class="spinner spinner-primary"></span> Cargando...
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-label">Correo Electrónico</div>
+            <div class="info-value" id="user-email">
+              <span class="spinner spinner-primary"></span> Cargando...
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-label">Organización (Tenant)</div>
+            <div class="info-value" id="user-tenant">
+              <span class="spinner spinner-primary"></span> Cargando...
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-label">Usuario</div>
+            <div class="info-value" id="user-username">
+              <span class="spinner spinner-primary"></span> Cargando...
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-label">ID de Usuario</div>
+            <div class="info-value" id="user-id">
+              <span class="spinner spinner-primary"></span> Cargando...
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-label">Email Verificado</div>
+            <div class="info-value" id="user-email-verified">
+              <span class="spinner spinner-primary"></span> Cargando...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session Information Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="mb-0">Información de Sesión</h3>
+      </div>
+      <div class="card-body">
+        <div class="user-info-grid">
+          <div class="info-item">
+            <div class="info-label">Estado</div>
+            <div class="info-value">
+              <span style="color: var(--color-success);">● Autenticado</span>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <div class="info-label">Token</div>
+            <div class="info-value text-sm" style="word-break: break-all;">
+              <span id="token-preview">...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions Card -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="mb-0">Acciones Disponibles</h3>
+      </div>
+      <div class="card-body">
+        <div class="flex flex-column gap-md">
+          <button class="btn btn-primary btn-lg" hx-get="/api/auth/me" hx-indicator="#loading-overlay"
+            hx-swap="none" hx-on::after-request="
+                    if(event.detail.successful) {
+                      const user = JSON.parse(event.detail.xhr.response);
+                      document.getElementById('user-name').textContent = (user.first_name || '') + ' ' + (user.last_name || '');
+                      document.getElementById('user-email').textContent = user.email || 'N/A';
+                      document.getElementById('user-tenant').textContent = user.tenant?.name || 'N/A';
+                      document.getElementById('user-username').textContent = user.email || 'N/A';
+                      document.getElementById('user-id').textContent = user.id || 'N/A';
+                    }
+                  " type="button">
+            Actualizar Información
+          </button>
+
+          <button class="btn btn-secondary btn-lg" onclick="
+                    const token = getToken();
+                    if(!token) { alert('No hay token'); return; }
+                    try {
+                      const payload = JSON.parse(atob(token.split('.')[1]));
+                      alert('Detalles del Token:\n\n' + JSON.stringify(payload, null, 2));
+                    } catch(e) {
+                      alert('Error al decodificar token');
+                    }
+                  " type="button">
+            Ver Detalles del Token
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-xl">
+      <p class="text-sm text-muted">
+        Sistema de autenticación seguro con Keycloak y Microsoft Azure AD
+      </p>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+
+</html>
